@@ -1,0 +1,3 @@
+[submodule "ccda-samples"]
+	path = ccda-samples
+	url = git@github.com:jddamore/ccda-samples.git
