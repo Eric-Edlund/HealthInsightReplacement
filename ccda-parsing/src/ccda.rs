@@ -13,7 +13,7 @@ use quick_xml::{
     events::{BytesStart, Event},
 };
 use std::ops::Deref;
-use std::{cell::RefCell, time::Instant};
+use std::cell::RefCell;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Sex {
