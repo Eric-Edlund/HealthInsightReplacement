@@ -1,3 +1,5 @@
+#![allow(clippy::all)]
+
 use clinical_formats::ccda::{parse, Patient, Sex};
 
 const ALL_VALID_SAMPLES: &[&[u8]] = &[

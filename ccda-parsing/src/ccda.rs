@@ -45,6 +45,7 @@ pub struct CcdaTopLevel<'a> {
 #[derive(Debug)]
 pub enum CcdaParseError {}
 
+#[allow(dead_code)]
 pub fn parse<'r>(src: &str, arena: &'r Bump) -> PResult<CcdaTopLevel<'r>> {
     let reader = Reader::from_str(src);
 
@@ -62,15 +63,7 @@ type PResult<T> = Result<T, CcdaParseError>;
 struct Context<'src> {
     reader: RefCell<Reader<&'src [u8]>>,
     last_given: RefCell<Option<Event<'src>>>,
-    // path: Vec<&'src str>,
 }
-
-// impl<'src> fmt::Debug for Context<'src> {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         // f.write_str(&" ".repeat(self.path.len()))?;
-//         f.debug_struct("Path").field("path", &self.path).finish()
-//     }
-// }
 
 impl<'src> Context<'src> {
     fn skip_rec(&self) {
@@ -80,19 +73,19 @@ impl<'src> Context<'src> {
         };
         let Event::Start(tag) = tag else { todo!() };
         let start_tag = str::from_utf8(tag.local_name().into_inner()).unwrap();
-        println!("Skipping rec: {}", start_tag);
+        // println!("Skipping rec: {}", start_tag);
         while depth > 0 {
             let Ok(ev) = self.reader.borrow_mut().read_event() else {
                 todo!()
             };
             match ev {
                 Event::Start(ref t) => {
-                    println!("<{:?}>", t);
+                    // println!("<{:?}>", t);
                     depth += 1;
                 }
                 Event::End(ref t) => {
                     depth -= 1;
-                    println!("</{:?}> -> {}", t, depth);
+                    // println!("</{:?}> -> {}", t, depth);
                 }
                 _ => {}
             }
@@ -128,7 +121,7 @@ impl<'src> Iterator for &Context<'src> {
                     None
                 }
                 ev => {
-                    println!("Pulled {:?}", ev);
+                    // println!("Pulled {:?}", ev);
                     *self.last_given.borrow_mut() = Some(ev.clone());
                     Some(ev)
                 }
@@ -177,12 +170,12 @@ fn p_top_level<'src, 'r>(ctx: Context<'src>, arena: &'r Bump) -> PResult<CcdaTop
 fn p_clinical_document<'r>(
     ctx: &Context,
     arena: &'r Bump,
-    start_bytes: &BytesStart,
+    opening: &BytesStart,
 ) -> PResult<ClinicalDocument<'r>> {
     let mut record_targets = Vec::<Patient<'r>>::new();
 
     for ev in ctx {
-        println!("Clinical Doc: {:?}", ev);
+        // println!("Clinical Doc: {:?}", ev);
         match ev {
             Event::Start(open_tag) => {
                 println!("{:?}", open_tag);
@@ -192,7 +185,6 @@ fn p_clinical_document<'r>(
                         record_targets.push(patient);
                     }
                     t => {
-                        println!("Skipping {:?}", t);
                         ctx.skip_rec();
                     } // t => todo!("{:?}", str::from_utf8(t).unwrap()),
                 };
@@ -225,24 +217,24 @@ fn p_clinical_document<'r>(
 fn p_record_target<'src, 'r>(
     ctx: &Context<'src>,
     arena: &'r Bump,
-    start_bytes: &BytesStart,
+    opening: &BytesStart,
 ) -> PResult<Patient<'r>> {
     assert_eq!(
-        start_bytes.name().local_name().into_inner(),
-        b"recordTarget"
+        str::from_utf8(opening.local_name().into_inner()).unwrap(),
+        "recordTarget"
     );
-    assert!(start_bytes.attributes().next().is_none());
+    assert!(opening.attributes().next().is_none());
 
     let mut patient_role: Option<Patient> = None;
 
     for ev in ctx {
         use Event::*;
         match ev {
-            Start(bytes_start) => {
-                match bytes_start.name().local_name().into_inner() {
+            Start(ref tag) => {
+                match tag.name().local_name().into_inner() {
                     b"patientRole" => {
                         assert!(patient_role.is_none());
-                        patient_role = Some(p_patient_role(ctx, arena, start_bytes)?);
+                        patient_role = Some(p_patient_role(ctx, arena, tag)?);
                     }
                     t => todo!("{:?}", str::from_utf8(t).unwrap()),
                 };
@@ -266,44 +258,35 @@ fn p_record_target<'src, 'r>(
 fn p_patient_role<'src, 'r>(
     ctx: &Context<'src>,
     arena: &'r Bump,
-    start_bytes: &BytesStart,
+    opening: &BytesStart,
 ) -> PResult<Patient<'r>> {
+    assert_eq!(
+        str::from_utf8(opening.local_name().into_inner()).unwrap(),
+        "patientRole"
+    );
     let mut seen_patient_role = false;
     let mut patient = Patient::default();
 
-    // ctx.consume_using(C {
-    //     start: |tag| {
-    //         match tag.name().local_name().into_inner() {
-    //             b"id" => {
-    //                 assert!(!seen_patient_role);
-    //                 seen_patient_role = true;
-    //                 p_patient__id(ctx, arena, &mut patient, start_bytes)?;
-    //                 Ok()
-    //             }
-    //             _ => None,
-    //         };
-    //     },
-    // });
-    //
     for ev in ctx {
         use Event::*;
         match ev {
-            Start(bytes_start) => {
-                match bytes_start.name().local_name().into_inner() {
+            Start(ref tag) => {
+                let name = tag.name().local_name().into_inner();
+                match name {
                     b"id" => {
                         assert!(!seen_patient_role);
                         seen_patient_role = true;
-                        p_patient__id(ctx, arena, &mut patient, start_bytes)?;
+                        p_patient__id(ctx, arena, &mut patient, tag)?;
                     }
                     _ => ctx.skip_rec(),
                 };
             }
-            Empty(bytes_start) => {
-                match bytes_start.name().local_name().into_inner() {
+            Empty(ref tag) => {
+                match tag.name().local_name().into_inner() {
                     b"id" => {
                         assert!(!seen_patient_role);
                         seen_patient_role = true;
-                        p_patient__id(ctx, arena, &mut patient, start_bytes)?;
+                        p_patient__id(ctx, arena, &mut patient, tag)?;
                     }
                     _ => {}
                 };
@@ -324,29 +307,33 @@ fn p_patient__id<'src, 'r>(
     _ctx: &Context<'src>,
     arena: &'r Bump,
     patient: &mut Patient<'r>,
-    start_bytes: &BytesStart,
+    opening: &BytesStart,
 ) -> PResult<()> {
-    let (mut root, mut extension) = (None, None);
+    assert_eq!(
+        str::from_utf8(opening.local_name().into_inner()).unwrap(),
+        "id"
+    );
+    let (mut root, mut extension): (Option<&str>, Option<&str>) = (None, None);
 
-    for attr in start_bytes.attributes() {
+    for attr in opening.attributes() {
         match attr {
             Err(_) => todo!(),
-            Ok(attr) => {
-                let val: &str = arena.alloc_str(str::from_utf8(attr.value.deref()).unwrap());
-                match attr.key.local_name().into_inner() {
-                    b"root" => {
-                        assert!(root.is_none());
-                        root = Some(val);
-                        patient.id_root = Some(val);
-                    }
-                    b"extension" => {
-                        assert!(extension.is_none());
-                        extension = Some(val);
-                        patient.id_extension = Some(val);
-                    }
-                    _ => todo!(),
+            Ok(attr) => match attr.key.local_name().into_inner() {
+                b"root" => {
+                    println!("patient_id_root");
+                    let val: &str = arena.alloc_str(str::from_utf8(attr.value.deref()).unwrap());
+                    assert!(root.is_none());
+                    root = Some(val);
+                    patient.id_root = Some(val);
                 }
-            }
+                b"extension" => {
+                    let val: &str = arena.alloc_str(str::from_utf8(attr.value.deref()).unwrap());
+                    assert!(extension.is_none());
+                    extension = Some(val);
+                    patient.id_extension = Some(val);
+                }
+                _ => todo!(),
+            },
         }
     }
 
