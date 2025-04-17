@@ -1,0 +1,13 @@
+[package]
+name = "ccda-parsing"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bumpalo = "3.17.0"
+quick-xml = "0.37.4"
+
+[lib]
+name = 'clinical_formats'
+path = 'src/lib.rs'
+
