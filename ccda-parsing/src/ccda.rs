@@ -3,8 +3,13 @@
     clippy::needless_lifetimes,
     clippy::needless_if,
     clippy::let_and_return,
-    clippy::single_match
+    clippy::single_match,
 )]
+// #![warn(
+//     clippy::unwrap_used,
+// )]
+
+//! We are implementing hl7 ccda R2.1
 
 use bumpalo::Bump;
 use core::str;
@@ -13,7 +18,24 @@ use quick_xml::{
     events::{BytesStart, Event},
 };
 use std::ops::Deref;
-use std::cell::RefCell;
+use std::{cell::RefCell, collections::HashMap};
+
+enum KnownTemplate {
+    /// Continuity of care document
+    /// https://www.hl7.org/ccdasearch/templates/2.16.840.1.113883.10.20.22.1.2.html
+    Ccd2015_08_01,
+}
+
+use lazy_static::lazy_static;
+
+lazy_static! {
+    /// Template name, extension (version) -> Template enum
+    static ref TEMPLATES: HashMap<(&'static str, Option<&'static str>), KnownTemplate> =
+        HashMap::from_iter([(
+            ("2.16.840.1.113883.10.20.22.1.2", Some("2015-08-01")),
+            KnownTemplate::Ccd2015_08_01
+        ),]);
+}
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Sex {
@@ -273,6 +295,18 @@ fn p_clinical_document<'r>(
 ) -> PResult<ClinicalDocument<'r>> {
     let mut record_targets = Vec::<Patient<'r>>::new();
 
+    // TODO: Namespace validation
+
+    for attr in opening.attributes() {
+        let Ok(attr) = attr else { todo!() };
+    }
+
+    // To perform schema validation on a CDA document instance properly,
+    // it is necessary to use the schema that includes the CDA R2 schema extensions.
+    // All extensions will use the namespace urn:hl7-org:sdtc. As a document consumer,
+    // the possibility of schema extensions needs to be considered.
+    // https://build.fhir.org/ig/HL7/CDA-ccda-2.1-sd/understanding_c-cda_and_the_c-cda_companion_guide.html
+
     for ev in ctx {
         // println!("Clinical Doc: {:?}", ev);
         match ev {
@@ -288,15 +322,13 @@ fn p_clinical_document<'r>(
                     }
                 };
             }
-            Event::Empty(tag) => {
-                match tag.local_name().into_inner() {
-                    b"recordTarget" => {
-                        let patient = p_record_target(ctx, arena, &tag)?;
-                        record_targets.push(patient);
-                    }
-                    _ => {}
+            Event::Empty(tag) => match tag.local_name().into_inner() {
+                b"recordTarget" => {
+                    let patient = p_record_target(ctx, arena, &tag)?;
+                    record_targets.push(patient);
                 }
-            }
+                _ => {}
+            },
             Event::CData(_bytes_cdata) => todo!(),
             Event::Decl(_bytes_decl) => {}
             Event::DocType(_bytes_text) => todo!(),

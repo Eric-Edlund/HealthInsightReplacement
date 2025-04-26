@@ -1,0 +1,17 @@
+version: '3'
+
+networks:
+  mock_network_1:
+    driver: bridge
+
+services: # containers
+  clickhouse:
+    image: clickhouse:lts
+    networks:
+      - mock_network_1
+    environment:
+      CLICKHOUSE_USER: 'eric'
+      CLICKHOUSE_PASSWORD: '1234'
+    volumes:
+      - ./clickhouse-data:/var/lib/clickhouse
+      - ./clickhouse-logs:/var/lib/clickhouse-server

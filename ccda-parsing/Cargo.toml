@@ -5,6 +5,8 @@ edition = "2024"
 
 [dependencies]
 bumpalo = "3.17.0"
+clickhouse = "0.13.2"
+lazy_static = "1.5.0"
 pretty_assertions = "1.4.1"
 quick-xml = "0.37.4"
 rust_iso3166 = "0.1.4"
