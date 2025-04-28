@@ -12,3 +12,4 @@ serde_json = "1.0.140"
 tokio = "1.44.2"
 openssl = { version = "0.10", features = ["vendored"] }
 time = "0.3.41"
+serde_repr = "0.1.20"

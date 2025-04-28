@@ -1,5 +1,6 @@
 use clickhouse::Row;
 use serde::Serialize;
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 // TODO: Implement unwrap for the clickhouse library
 
@@ -22,6 +23,14 @@ impl Serialize for TimeResolution {
     }
 }
 
+#[derive(Debug, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
+pub enum Deceased {
+    Unknown = 1,
+    Alive = 2,
+    Dead = 3,
+}
+
 #[derive(Debug, Row, Serialize)]
 pub struct AggregatePatient {
     pub name_given: String,
@@ -30,7 +39,7 @@ pub struct AggregatePatient {
     pub birth_time: time::Date,
     pub birth_time_resolution: TimeResolution,
 
-    #[serde(with = "clickhouse::serde::time::datetime")]
-    pub death_time: time::OffsetDateTime,
-    // pub deceased: bool,
+    #[serde(with = "clickhouse::serde::time::datetime::option")]
+    pub death_time: Option<time::OffsetDateTime>,
+    pub deceased: Deceased,
 }

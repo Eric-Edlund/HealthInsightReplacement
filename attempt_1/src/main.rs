@@ -26,8 +26,8 @@ name_given String,
 name_family String,
 birth_time Date32,
 birth_time_resolution LowCardinality(String),
-death_time DateTime32,
-deceased Bool
+death_time Nullable(DateTime32),
+deceased Enum('unknown' = 1, 'alive' = 2, 'dead' = 3)
 ) ORDER BY ()",
         )
         .execute()

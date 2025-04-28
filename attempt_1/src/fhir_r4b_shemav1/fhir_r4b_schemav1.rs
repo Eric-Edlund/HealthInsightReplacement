@@ -1,7 +1,8 @@
 use super::util::{double_unwrap, join_name};
-use crate::schemav1::{AggregatePatient, TimeResolution};
+use crate::schemav1::{AggregatePatient, Deceased, TimeResolution};
 use fhir_model::{
-    r4b::resources::{Patient, PatientDeceased}, Date
+    Date,
+    r4b::resources::{Patient, PatientDeceased},
 };
 use time::{OffsetDateTime, Time, macros::date};
 
@@ -39,16 +40,23 @@ pub fn convert_patient(src: &Patient) -> ConversionResult<AggregatePatient> {
             None => (None, None),
         };
 
-    let (deceased, death_time): (Option<bool>, Option<OffsetDateTime>) = match &src.deceased {
+    let (deceased, death_time): (Deceased, Option<OffsetDateTime>) = match &src.deceased {
         Some(deceased) => match deceased {
-            PatientDeceased::Boolean(died) => (Some(*died), None),
+            PatientDeceased::Boolean(died) => (
+                if *died {
+                    Deceased::Dead
+                } else {
+                    Deceased::Alive
+                },
+                None,
+            ),
             PatientDeceased::DateTime(death_time) => match death_time {
                 fhir_model::DateTime::Date(date) => match &date {
                     Date::Year(year) => {
                         let Ok(d) = DD.replace_year(*year) else {
                             return Err(ConversionError {});
                         };
-                        (Some(true), Some(d.with_time(Time::MIDNIGHT).assume_utc()))
+                        (Deceased::Dead, Some(d.with_time(Time::MIDNIGHT).assume_utc()))
                     }
                     Date::YearMonth(year, month) => {
                         let Ok(d) = DD.replace_year(*year) else {
@@ -57,22 +65,21 @@ pub fn convert_patient(src: &Patient) -> ConversionResult<AggregatePatient> {
                         let Ok(d) = d.replace_month(*month) else {
                             return Err(ConversionError {});
                         };
-                        (Some(true), Some(d.with_time(Time::MIDNIGHT).assume_utc()))
+                        (Deceased::Dead, Some(d.with_time(Time::MIDNIGHT).assume_utc()))
                     }
                     Date::Date(date) => (
-                        Some(true),
+                        Deceased::Dead,
                         Some(date.with_time(Time::MIDNIGHT).assume_utc()),
                     ),
                 },
                 fhir_model::DateTime::DateTime(instant) => {
                     let fhir_model::Instant(offsetdatetime) = instant;
-                    (Some(true), Some(*offsetdatetime))
+                    (Deceased::Dead, Some(*offsetdatetime))
                 }
             },
         },
-        None => (None, None),
+        None => (Deceased::Unknown, None),
     };
-
 
     // let Some(first_addr) = double_unwrap(&src.address).first() else {
     //     todo!()
@@ -87,7 +94,7 @@ pub fn convert_patient(src: &Patient) -> ConversionResult<AggregatePatient> {
             .unwrap_or("".to_string()),
         birth_time: birth_time.unwrap(),
         birth_time_resolution: birth_time_resolution.unwrap(),
-        death_time: death_time.unwrap_or(OffsetDateTime::now_utc()),
-        // deceased: deceased,
+        death_time,
+        deceased,
     })
 }
