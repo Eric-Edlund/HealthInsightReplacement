@@ -1,10 +1,9 @@
-use fhir_model;
-use serde_json;
-
 use fhir_model::r4b::resources::Patient;
 
 fn main() {
     let r = serde_json::from_str::<Patient>(PATIENT).unwrap();
+
+    kafka::
 
     dbg!(r);
 

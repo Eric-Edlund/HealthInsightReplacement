@@ -7,11 +7,13 @@ networks:
 services: # containers
   clickhouse:
     image: clickhouse:lts
-    networks:
-      - mock_network_1
+    # networks:
+    #   - mock_network_1
+    #   - host
     environment:
       CLICKHOUSE_USER: 'eric'
       CLICKHOUSE_PASSWORD: '1234'
+    network_mode: "host"
     volumes:
       - ./clickhouse-data:/var/lib/clickhouse
       - ./clickhouse-logs:/var/lib/clickhouse-server

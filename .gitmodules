@@ -1,3 +1,6 @@
 [submodule "ccda-samples"]
 	path = ccda-samples
 	url = git@github.com:jddamore/ccda-samples.git
+[submodule "sample-bulk-fhir-datasets"]
+	path = sample-bulk-fhir-datasets
+	url = git@github.com:smart-on-fhir/sample-bulk-fhir-datasets.git
