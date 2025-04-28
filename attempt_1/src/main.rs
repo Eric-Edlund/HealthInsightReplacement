@@ -1,9 +1,9 @@
-mod fhirr4b_shemav1;
+mod fhir_r4b_shemav1;
 mod schemav1;
 
 use clickhouse::Client;
 use fhir_model::r4b::resources::Patient;
-use fhirr4b_shemav1::convert_patient;
+use fhir_r4b_shemav1::convert_patient;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), clickhouse::error::Error> {
