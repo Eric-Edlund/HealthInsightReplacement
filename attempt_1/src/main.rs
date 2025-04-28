@@ -1,10 +1,9 @@
-mod schemav1;
 mod fhirr4b_shemav1;
+mod schemav1;
 
 use clickhouse::Client;
 use fhir_model::r4b::resources::Patient;
 use fhirr4b_shemav1::convert_patient;
-
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), clickhouse::error::Error> {
@@ -25,12 +24,16 @@ async fn main() -> Result<(), clickhouse::error::Error> {
             "CREATE TABLE IF NOT EXISTS AggregatePatient (
 name_given String,
 name_family String,
+birth_time Date32,
+birth_time_resolution LowCardinality(String),
+death_time DateTime32,
+deceased Bool
 ) ORDER BY ()",
         )
         .execute()
         .await?;
 
-    let aggregate_patient = convert_patient(&fhir_patient);
+    let aggregate_patient = convert_patient(&fhir_patient).unwrap();
 
     dbg!(&aggregate_patient);
 
