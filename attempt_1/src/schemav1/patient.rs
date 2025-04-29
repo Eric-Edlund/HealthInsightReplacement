@@ -31,6 +31,17 @@ pub enum Deceased {
     Dead = 3,
 }
 
+#[derive(Debug, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
+pub enum AddressUse {
+    Unknown = 0,
+    Billing = 1,
+    Home = 2,
+    Old = 3,
+    Temp = 4,
+    Work = 5,
+}
+
 #[derive(Debug, Row, Serialize)]
 pub struct AggregatePatient {
     pub name_given: String,
@@ -42,4 +53,16 @@ pub struct AggregatePatient {
     #[serde(with = "clickhouse::serde::time::datetime::option")]
     pub death_time: Option<time::OffsetDateTime>,
     pub deceased: Deceased,
+
+    #[serde(rename = "addresses.use")]
+    pub addresses_use: Vec<AddressUse>,
 }
+
+
+// #[derive(Row, Serialize, Deserialize)]
+// struct MyRow {
+//     #[serde(rename = "items.name")]
+//     items_name: Vec<String>,
+//     #[serde(rename = "items.count")]
+//     items_count: Vec<u32>,
+// }

@@ -1,8 +1,8 @@
 use super::util::{double_unwrap, join_name};
 use crate::schemav1::{AggregatePatient, Deceased, TimeResolution};
+use crate::schemav1;
 use fhir_model::{
-    Date,
-    r4b::resources::{Patient, PatientDeceased},
+    r4b::{codes::AddressUse, resources::{Patient, PatientDeceased}}, Date
 };
 use time::{OffsetDateTime, Time, macros::date};
 
@@ -81,9 +81,19 @@ pub fn convert_patient(src: &Patient) -> ConversionResult<AggregatePatient> {
         None => (Deceased::Unknown, None),
     };
 
-    // let Some(first_addr) = double_unwrap(&src.address).first() else {
-    //     todo!()
-    // };
+    let (mut uses,): (Vec<schemav1::AddressUse>,) = (vec![],);
+    for addr in double_unwrap(&src.address) {
+        uses.push(match addr.r#use {
+            None => schemav1::AddressUse::Unknown,
+            Some(addr_use) => match addr_use {
+                AddressUse::Old => schemav1::AddressUse::Old,
+                AddressUse::Home => schemav1::AddressUse::Home,
+                AddressUse::Temp => schemav1::AddressUse::Temp,
+                AddressUse::Work => schemav1::AddressUse::Work,
+                AddressUse::Billing => schemav1::AddressUse::Billing,
+            }
+        });
+    }
 
     Ok(AggregatePatient {
         name_given: first
@@ -96,5 +106,6 @@ pub fn convert_patient(src: &Patient) -> ConversionResult<AggregatePatient> {
         birth_time_resolution: birth_time_resolution.unwrap(),
         death_time,
         deceased,
+        addresses_use: uses,
     })
 }
