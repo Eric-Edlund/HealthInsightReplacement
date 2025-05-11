@@ -1,0 +1,3 @@
+FROM apache/kafka:latest
+
+CMD ["/etc/kafka/docker/run"]

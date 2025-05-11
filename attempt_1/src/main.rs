@@ -5,9 +5,13 @@ use clickhouse::Client;
 use fhir_model::r4b::resources::Patient;
 use fhir_r4b_shemav1::convert_patient;
 
+use kafka::consumer::Consumer;
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), clickhouse::error::Error> {
     let fhir_patient = serde_json::from_str::<Patient>(PATIENT).unwrap();
+
+    Consumer::from_hosts("").with_topic("");
 
     let mut clickhouse = Client::default()
         .with_url("http://localhost:8123")
@@ -29,8 +33,14 @@ birth_time_resolution LowCardinality(String),
 death_time Nullable(DateTime32),
 deceased Enum('unknown' = 1, 'alive' = 2, 'dead' = 3),
 addresses Nested(
-  use Enum( 'unknown' = 0, 'billing' = 1, 'home' = 2, 'old' = 3, 'temp' = 4, 'work' = 5)
-)
+  use Enum( 'unknown' = 0, 'billing' = 1, 'home' = 2, 'old' = 3, 'temp' = 4, 'work' = 5),
+  type Enum( 'unknown' = 0, 'physical' = 1, 'postal' = 2, 'both' = 3 ),
+  city String,
+  line String,
+  city String,
+  country String,
+  postal_code String,
+),
 ) ORDER BY ()",
         )
         .execute()

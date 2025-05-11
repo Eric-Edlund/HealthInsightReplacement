@@ -1,0 +1,160 @@
+
+# This service describes the interface between zookeeper instances
+apiVersion: v1
+kind: Service
+metadata:
+  name: zk-hs
+  labels:
+    app: zk
+spec:
+  ports:
+    - port: 2888
+      name: server
+    - port: 3888
+      name: leader-election
+  clusterIP: None # This is a headless service
+  # This means kubernetes won't create a proxy service that routes
+  # traffic to the pods implementing the service. Instead, DNS
+  # requests to get to the service will be given a list of all pods
+  # implementing the service. We need this so that the zookeeper
+  # nodes can coordinate with all of eachother.
+  #
+  # This service creates a subdomain for all it's pods:
+  #   *.zk-hs.default.svc.cluster.local
+  #
+  # The zookeeper container is configured to use this to find
+  # it's siblings.
+  selector:
+    app: zk
+
+---
+
+# This service describes the interface between zookeeper and a client
+apiVersion: v1
+kind: Service
+metadata:
+  name: zk-cs
+  labels:
+    app: zk
+spec:
+  ports:
+    - port: 2181
+      name: client
+  selector:
+    app: zk
+
+---
+
+# Enforces a scheduling rule that only 1 zookeeper may be down at once
+# so we always have a quorum
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: zk-pdb
+spec:
+  selector:
+    matchLabels:
+      app: zk
+  maxUnavailable: 1
+  # This number is relative to the total number of zk pod instances
+  # which the system otherwise determines to be necessary.
+
+---
+
+# This describes the set of zookeeper pods we need to maintain
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zk # The name of the stateful set is zk
+  # Pods created by the stateful set take the form
+  #   zk-0, zk-1, ...
+spec:
+  selector:
+    matchLabels:
+      app: zk
+  serviceName: zk-hs
+  replicas: 3
+  updateStrategy:
+    type: RollingUpdate
+  podManagementPolicy: Parallel
+  template:
+    metadata:
+      labels:
+        app: zk
+    spec:
+      affinity:
+        podAntiAffinity: # Don't pair zookeper instances
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                    - zk
+              topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: kubernetes-zookeeper
+        imagePullPolicy: Always
+        image: "registry.k8s.io/kubernetes-zookeeper:1.0-3.4.10"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "2" # What is this?
+        ports:
+          - containerPort: 2181
+            name: client
+          - containerPort: 2888
+            name: server
+          - containerPort: 3888
+            name: leader-election
+        command:
+          - sh
+          - -c
+          - "start-zookeeper \
+            --servers=3 \
+            --data_dir=/var/lib/zookeeper/data \
+            --data_log_dir=/var/lib/zookeeper/data/log \
+            --conf_dir=/opt/zookeeper/conf \
+            --client_port=2181 \
+            --election_port=3888 \
+            --server_port=2888 \
+            --tick_time=2000 \
+            --init_limit=10 \
+            --sync_limit=5 \
+            --heap=512M \
+            --max_client_cnxns=60 \
+            --snap_retain_count=3 \
+            --purge_interval=12 \
+            --max_session_timeout=40000 \
+            --min_session_timeout=4000 \
+            --log_level=INFO"
+        readinessProbe:
+          exec:
+            command:
+              - sh
+              - -c
+              - "zookeeper-ready 2181"
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+        livenessProbe:
+          exec:
+            command:
+              - sh
+              - -c
+              - "zookeeper-ready 2181"
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+        volumeMounts:
+          - name: datadir
+            mountPath: /var/lib/zookeeper
+      securityContext:
+        runAsUser: 1000 # What user is this?
+        fsGroup: 1000
+  volumeClaimTemplates:
+    - metadata:
+        name: datadir
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 10Gi

@@ -42,6 +42,15 @@ pub enum AddressUse {
     Work = 5,
 }
 
+#[derive(Debug, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
+pub enum AddressType {
+    Unknown = 0,
+    Physical = 1,
+    Postal = 2,
+    Both = 3,
+}
+
 #[derive(Debug, Row, Serialize)]
 pub struct AggregatePatient {
     pub name_given: String,
@@ -56,6 +65,12 @@ pub struct AggregatePatient {
 
     #[serde(rename = "addresses.use")]
     pub addresses_use: Vec<AddressUse>,
+    #[serde(rename = "addresses.type")]
+    pub addresses_type: Vec<AddressType>,
+    #[serde(rename = "addresses.city")]
+    pub addresses_city: Vec<String>,
+    #[serde(rename = "addresses.line")]
+    pub addresses_line: Vec<String>,
 }
 
 

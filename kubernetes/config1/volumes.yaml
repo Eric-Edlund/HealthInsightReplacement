@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata: 
+  name: db-pv
+spec:
+  capacity:
+    storage: 6Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce # Only one pod may be scheduled to use this volume
+  # When the PersistentVolumeClaim is deleted, don't delete the volume.
+  persistentVolumeReclaimPolicy: Retain 
+  storageClassName: local-storage
+  local:
+    path: /db-volume
+  # Needed to specify that the volume can only be found on this node.
+  # This causes kubernetes to schedule the necessary pods to the correct node.
+  nodeAffinity: 
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+              - test-cluster-1-worker2 # The node name containing the volume
+---
+# Delay binding volume binding until a pod is actually scheduled on the
+# correct node. If this isn't here, k8s is stupid and doesn't consider 
+# everything that it's supposed to.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-storage
+provisioner: kubernetes.io/no-provisioner # indicates that this StorageClass does not support automatic provisioning
+volumeBindingMode: WaitForFirstConsumer
+---
+# Kubernetes matches this to a suitable persistent volume
+apiVersion: v1
+kind: PersistentVolumeClaim # This could be called volume description
+metadata:
+  name: db-pvc
+spec:
+  storageClassName: local-storage
+  accessModes:
+    - ReadWriteOnce # Only one pod at a time
+  resources: # Constraints for which real volume to use
+    requests:
+      storage: 3Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: db-pv-pod
+spec:
+  # Here we describe pod volumes which may be used by multiple containers
+  volumes:
+    - name: pod-db-volume # Local pod namespace declaration
+      persistentVolumeClaim:
+        claimName: db-pvc # The name of the persistent volume claim
+  containers:
+    - name: task-pv-container
+      image: nginx
+      ports:
+        - containerPort: 80
+          name: "http-server" # Why does this port need a name?
+      volumeMounts:
+        - mountPath: "/usr/share/nginx/html"
+          name: pod-db-volume # Reference this volume name defined by the containing pod
+
