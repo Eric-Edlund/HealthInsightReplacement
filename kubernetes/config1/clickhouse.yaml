@@ -1,11 +1,24 @@
+# Delay binding volume binding until a pod is actually scheduled on the
+# correct node. If this isn't here, k8s is stupid and doesn't consider 
+# everything that it's supposed to.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-storage
+provisioner: kubernetes.io/no-provisioner # indicates that this StorageClass does not support automatic provisioning
+volumeBindingMode: WaitForFirstConsumer
+---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: clickhouse-data-pv
 spec:
+  capacity:
+    storage: 3Gi
   volumeMode: Filesystem
   accessModes:
     - ReadWriteOnce # Only one pod may be scheduled to use this volume
+  persistentVolumeReclaimPolicy: Retain # Don't delete the database
   storageClassName: local-storage
   local:
     path: /var/clickhouse
@@ -21,12 +34,74 @@ spec:
               - test-cluster-1-worker2
 ---
 apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: clickhouse-server-pv
+spec:
+  capacity:
+    storage: 3Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce # Only one pod may be scheduled to use this volume
+  storageClassName: local-storage
+  persistentVolumeReclaimPolicy: Retain
+  local:
+    path: /var/clickhouse-server
+
+  nodeAffinity: 
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+              - test-cluster-1-worker
+              - test-cluster-1-worker2
+---
+# TODO: Can we specify the exact pv to use with labels?
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: clickhouse-data-pvc
+spec:
+  storageClassName: local-storage
+  accessModes:
+    - ReadWriteOnce # Only one pod at a time
+  resources:
+    requests:
+      storage: 3Gi
+--- 
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: clickhouse-server-pvc
+spec:
+  storageClassName: local-storage
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 3Gi
+---
+apiVersion: v1
 kind: Pod
 metadata:
   name: clickhouse-1
   labels:
     app: clickhouse
 spec:
+  volumes:
+    - name: clickhouse-data-v
+      persistentVolumeClaim:
+        claimName: clickhouse-data-pvc
+    - name: clickhouse-server-v
+      persistentVolumeClaim:
+        claimName: clickhouse-server-pvc
   containers:
     - name: clickhouse
       image: clickhouse:lts-jammy
+      volumeMounts:
+        - name: clickhouse-data-v
+          mountPath: "/var/lib/clickhouse"
+        - name: clickhouse-server-v
+          mountPath: "/var/lib/clickhouse-server"
