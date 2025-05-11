@@ -18,21 +18,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "512761e0bb2578dd7380c6baaa0f4ce03e84f95e960231d1dec8bf4d7d6e2627"
 
 [[package]]
-name = "attempt_1"
-version = "0.1.0"
-dependencies = [
- "clickhouse",
- "fhir-model",
- "kafka",
- "openssl",
- "serde",
- "serde_json",
- "serde_repr",
- "time",
- "tokio",
-]
-
-[[package]]
 name = "autocfg"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -254,6 +239,21 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "feeder"
+version = "0.1.0"
+dependencies = [
+ "clickhouse",
+ "fhir-model",
+ "kafka",
+ "openssl",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "time",
+ "tokio",
 ]
 
 [[package]]
