@@ -3,6 +3,7 @@ use crate::schemav1;
 use crate::schemav1::{AggregatePatient, Deceased, TimeResolution};
 use fhir_model::DateTime;
 use fhir_model::r4b::codes::{AddressType, EncounterStatus};
+use fhir_model::r4b::resources::{Bundle, Resource};
 use fhir_model::r4b::types::Reference;
 use fhir_model::{
     Date,
@@ -19,6 +20,21 @@ pub struct ConversionError {}
 pub type ConversionResult<T> = Result<T, ConversionError>;
 
 const DD: time::Date = date!(2025 - 01 - 01);
+
+pub fn convert_bundle(src: &Bundle) -> ConversionResult<Vec<schemav1::Resource>> {
+    let mut result = vec![];
+
+    for entry in double_unwrap(&src.entry) {
+        if let Some(resource) = &entry.resource {
+            result.push(match resource {
+                Resource::Patient(res) => schemav1::Resource::Patient(convert_patient(res)?),
+                Resource::Encounter(res) => schemav1::Resource::Encounter(convert_encounter(res)?),
+                _ => continue
+            })
+        }
+    }
+    Ok(result)
+}
 
 pub fn convert_encounter(src: &Encounter) -> ConversionResult<schemav1::Encounter> {
     let Some(encounter_id) = src.id.clone() else {

@@ -2,7 +2,7 @@ mod fhir_r4b_shemav1;
 mod schemav1;
 
 use clickhouse::Client;
-use fhir_model::r4b::resources::Patient;
+use fhir_model::r4b::resources::{Bundle, Patient};
 use fhir_r4b_shemav1::convert_patient;
 
 use kafka::consumer::Consumer;
@@ -17,6 +17,7 @@ async fn main() -> Result<(), clickhouse::error::Error> {
         .with_password("1234");
 
     schemav1::db_ops::install_schema_v1(&clickhouse, "attempt_1_1").await?;
+
 
     // let fhir_patient = serde_json::from_str::<Patient>(PATIENT).unwrap();
     // let aggregate_patient = convert_patient(&fhir_patient).unwrap();
