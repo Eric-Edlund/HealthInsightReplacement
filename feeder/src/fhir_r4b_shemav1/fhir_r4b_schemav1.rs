@@ -92,15 +92,47 @@ pub fn convert_patient(src: &Patient) -> ConversionResult<AggregatePatient> {
         None => (Deceased::Unknown, None),
     };
 
-    let (mut uses, mut types, mut cities, mut lines, mut states, mut countries): (
-        Vec<schemav1::AddressUse>,
-        Vec<schemav1::AddressType>,
-        Vec<String>,
-        Vec<String>,
-        Vec<String>,
-        Vec<String>,
-    ) = (vec![], vec![], vec![], vec![], vec![], vec![]);
-    for addr in double_unwrap(&src.address) {
+    let (uses, types, cities, lines, states, countries): AddressList =
+        parse_addresses(double_unwrap(&src.address))?;
+
+    let Some(patient_id) = &src.id else {
+        return Err(ConversionError {})
+    };
+
+    Ok(AggregatePatient {
+        id: patient_id.clone(),
+        name_given: first
+            .map(|first| join_name(&first.given))
+            .unwrap_or("".to_string()),
+        name_family: first
+            .and_then(|name| name.family.clone())
+            .unwrap_or("".to_string()),
+        birth_time: birth_time.unwrap(),
+        birth_time_resolution: birth_time_resolution.unwrap(),
+        death_time,
+        deceased,
+        addresses_use: uses,
+        addresses_type: types,
+        addresses_city: cities,
+        addresses_line: lines,
+    })
+}
+
+type AddressList = (
+    Vec<schemav1::AddressUse>,
+    Vec<schemav1::AddressType>,
+    Vec<String>,
+    Vec<String>,
+    Vec<String>,
+    Vec<String>,
+);
+
+fn parse_addresses(
+    addresses: Vec<fhir_model::r4b::types::Address>,
+) -> ConversionResult<AddressList> {
+    let (mut uses, mut types, mut cities, mut lines, mut states, mut countries): AddressList =
+        (vec![], vec![], vec![], vec![], vec![], vec![]);
+    for addr in addresses {
         uses.push(match addr.r#use {
             None => schemav1::AddressUse::Unknown,
             Some(addr_use) => match addr_use {
@@ -127,9 +159,9 @@ pub fn convert_patient(src: &Patient) -> ConversionResult<AggregatePatient> {
         // TODO: Handle address text
         states.push(addr.state.clone().unwrap_or("".to_string()));
         countries.push(addr.country.clone().unwrap_or("".to_string()));
-        postal_codes.push(addr.postal_code.clone().unwrap_or("".to_string()));
-        periods.push
-        addr.period
+        // postal_codes.push(addr.postal_code.clone().unwrap_or("".to_string()));
+        // periods.push
+        // addr.period
     }
     assert_eq!(uses.len(), types.len());
     assert_eq!(uses.len(), cities.len());
@@ -137,20 +169,5 @@ pub fn convert_patient(src: &Patient) -> ConversionResult<AggregatePatient> {
     assert_eq!(uses.len(), states.len());
     assert_eq!(uses.len(), countries.len());
 
-    Ok(AggregatePatient {
-        name_given: first
-            .map(|first| join_name(&first.given))
-            .unwrap_or("".to_string()),
-        name_family: first
-            .and_then(|name| name.family.clone())
-            .unwrap_or("".to_string()),
-        birth_time: birth_time.unwrap(),
-        birth_time_resolution: birth_time_resolution.unwrap(),
-        death_time,
-        deceased,
-        addresses_use: uses,
-        addresses_type: types,
-        addresses_city: cities,
-        addresses_line: lines,
-    })
+    Ok((uses, types, cities, lines, states, countries))
 }

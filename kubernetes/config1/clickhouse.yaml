@@ -84,12 +84,26 @@ spec:
       storage: 3Gi
 ---
 apiVersion: v1
+kind: Service
+metadata:
+  name: clickhouse-svc
+spec:
+  ports:
+    - name: clickhouse-client
+      port: 8123
+  selector:
+    app: clickhouse
+  
+
+---
+apiVersion: v1
 kind: Pod
 metadata:
   name: clickhouse-1
   labels:
     app: clickhouse
 spec:
+
   volumes:
     - name: clickhouse-data-v
       persistentVolumeClaim:
@@ -100,8 +114,13 @@ spec:
   containers:
     - name: clickhouse
       image: clickhouse:lts-jammy
+      env:
+        CLICKHOUSE_PASSWORD: password
       volumeMounts:
         - name: clickhouse-data-v
           mountPath: "/var/lib/clickhouse"
         - name: clickhouse-server-v
           mountPath: "/var/lib/clickhouse-server"
+      ports:
+        - name: clickhouse-client
+          containerPort: 8123

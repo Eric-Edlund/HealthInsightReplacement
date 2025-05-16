@@ -1,1 +1,3 @@
 /target
+/clickhouse-logs
+/clickhouse-data

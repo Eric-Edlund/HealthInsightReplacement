@@ -53,6 +53,7 @@ pub enum AddressType {
 
 #[derive(Debug, Row, Serialize)]
 pub struct AggregatePatient {
+    pub id: String,
     pub name_given: String,
     pub name_family: String,
     #[serde(with = "clickhouse::serde::time::date32")]

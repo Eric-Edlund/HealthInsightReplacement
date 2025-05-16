@@ -11,7 +11,7 @@ use kafka::consumer::Consumer;
 async fn main() -> Result<(), clickhouse::error::Error> {
     let fhir_patient = serde_json::from_str::<Patient>(PATIENT).unwrap();
 
-    Consumer::from_hosts("").with_topic("");
+    Consumer::from_hosts(vec!["".to_string()]).with_topic("".to_string());
 
     let mut clickhouse = Client::default()
         .with_url("http://localhost:8123")
@@ -26,6 +26,7 @@ async fn main() -> Result<(), clickhouse::error::Error> {
     clickhouse
         .query(
             "CREATE TABLE IF NOT EXISTS AggregatePatient (
+id String,
 name_given String,
 name_family String,
 birth_time Date32,
@@ -37,7 +38,6 @@ addresses Nested(
   type Enum( 'unknown' = 0, 'physical' = 1, 'postal' = 2, 'both' = 3 ),
   city String,
   line String,
-  city String,
   country String,
   postal_code String,
 ),
