@@ -73,12 +73,3 @@ pub struct AggregatePatient {
     #[serde(rename = "addresses.line")]
     pub addresses_line: Vec<String>,
 }
-
-
-// #[derive(Row, Serialize, Deserialize)]
-// struct MyRow {
-//     #[serde(rename = "items.name")]
-//     items_name: Vec<String>,
-//     #[serde(rename = "items.count")]
-//     items_count: Vec<u32>,
-// }

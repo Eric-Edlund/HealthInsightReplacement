@@ -1,12 +1,14 @@
 use super::util::{double_unwrap, join_name};
 use crate::schemav1;
 use crate::schemav1::{AggregatePatient, Deceased, TimeResolution};
-use fhir_model::r4b::codes::AddressType;
+use fhir_model::DateTime;
+use fhir_model::r4b::codes::{AddressType, EncounterStatus};
+use fhir_model::r4b::types::Reference;
 use fhir_model::{
     Date,
     r4b::{
         codes::AddressUse,
-        resources::{Patient, PatientDeceased},
+        resources::{Encounter, Patient, PatientDeceased},
     },
 };
 use time::{OffsetDateTime, Time, macros::date};
@@ -17,6 +19,107 @@ pub struct ConversionError {}
 pub type ConversionResult<T> = Result<T, ConversionError>;
 
 const DD: time::Date = date!(2025 - 01 - 01);
+
+pub fn convert_encounter(src: &Encounter) -> ConversionResult<schemav1::Encounter> {
+    let Some(encounter_id) = src.id.clone() else {
+        return Err(ConversionError {});
+    };
+
+    let status = match src.status {
+        EncounterStatus::Arrived => schemav1::EncounterStatus::Arrived,
+        EncounterStatus::Cancelled => schemav1::EncounterStatus::Cancelled,
+        EncounterStatus::EnteredInError => schemav1::EncounterStatus::EnteredInError,
+        EncounterStatus::Finished => schemav1::EncounterStatus::Finished,
+        EncounterStatus::InProgress => schemav1::EncounterStatus::InProgress,
+        EncounterStatus::Onleave => schemav1::EncounterStatus::Onleave,
+        EncounterStatus::Planned => schemav1::EncounterStatus::Planned,
+        EncounterStatus::Triaged => schemav1::EncounterStatus::Triaged,
+        EncounterStatus::Unknown => schemav1::EncounterStatus::Unknown,
+    };
+
+    let subject_id = if let Some(rref) = &src.subject {
+        Some(parse_patient_reference(rref)?)
+    } else {
+        None
+    };
+
+    let (start, end): (Option<time::OffsetDateTime>, Option<time::OffsetDateTime>) =
+        if let Some(period) = &src.period {
+            (
+                match &period.start {
+                    Some(t) => Some(parse_datetime(t)?),
+                    None => None,
+                },
+                match &period.end {
+                    Some(t) => Some(parse_datetime(t)?),
+                    None => None,
+                },
+            )
+        } else {
+            (None, None)
+        };
+
+    Ok(schemav1::Encounter {
+        id: encounter_id,
+        status,
+        subject: subject_id.unwrap_or_default(),
+        // TODO: Should we be using UNIX_EPOCH or some other special value?
+        period_start: start.unwrap_or(OffsetDateTime::UNIX_EPOCH),
+        period_end: end.unwrap_or(OffsetDateTime::UNIX_EPOCH),
+        class_code: src.class.code.clone().unwrap_or_default(),
+        class_description: src.class.display.clone().unwrap_or_default(),
+        class_system: src.class.system.clone().unwrap_or_default(),
+    })
+}
+
+fn parse_datetime(src: &DateTime) -> ConversionResult<OffsetDateTime> {
+    match src {
+        fhir_model::DateTime::Date(date) => match &date {
+            Date::Year(year) => {
+                let Ok(d) = DD.replace_year(*year) else {
+                    return Err(ConversionError {});
+                };
+                Ok(d.with_time(Time::MIDNIGHT).assume_utc())
+            }
+            Date::YearMonth(year, month) => {
+                let Ok(d) = DD.replace_year(*year) else {
+                    return Err(ConversionError {});
+                };
+                let Ok(d) = d.replace_month(*month) else {
+                    return Err(ConversionError {});
+                };
+                Ok(d.with_time(Time::MIDNIGHT).assume_utc())
+            }
+            Date::Date(date) => Ok(date.with_time(Time::MIDNIGHT).assume_utc()),
+        },
+        fhir_model::DateTime::DateTime(instant) => {
+            let fhir_model::Instant(offsetdatetime) = instant;
+            Ok(*offsetdatetime)
+        }
+    }
+}
+
+fn parse_patient_reference(reff: &Reference) -> ConversionResult<String> {
+    if let Some(ty) = &reff.r#type {
+        match ty.as_str() {
+            "Patient" => {}
+            _ => return Err(ConversionError {}),
+        }
+    };
+    if let Some(ref_str) = &reff.reference {
+        // TODO: Here we assume it's a relative url
+        let parts: Vec<&str> = ref_str.split("/").collect();
+        if parts.len() < 2 {
+            return Err(ConversionError {});
+        }
+        if parts[0] != "Patient" {
+            return Err(ConversionError {});
+        }
+        return Ok(parts[1].to_string());
+    }
+
+    Err(ConversionError {})
+}
 
 pub fn convert_patient(src: &Patient) -> ConversionResult<AggregatePatient> {
     let names = double_unwrap(&src.name);
@@ -55,39 +158,9 @@ pub fn convert_patient(src: &Patient) -> ConversionResult<AggregatePatient> {
                 },
                 None,
             ),
-            PatientDeceased::DateTime(death_time) => match death_time {
-                fhir_model::DateTime::Date(date) => match &date {
-                    Date::Year(year) => {
-                        let Ok(d) = DD.replace_year(*year) else {
-                            return Err(ConversionError {});
-                        };
-                        (
-                            Deceased::Dead,
-                            Some(d.with_time(Time::MIDNIGHT).assume_utc()),
-                        )
-                    }
-                    Date::YearMonth(year, month) => {
-                        let Ok(d) = DD.replace_year(*year) else {
-                            return Err(ConversionError {});
-                        };
-                        let Ok(d) = d.replace_month(*month) else {
-                            return Err(ConversionError {});
-                        };
-                        (
-                            Deceased::Dead,
-                            Some(d.with_time(Time::MIDNIGHT).assume_utc()),
-                        )
-                    }
-                    Date::Date(date) => (
-                        Deceased::Dead,
-                        Some(date.with_time(Time::MIDNIGHT).assume_utc()),
-                    ),
-                },
-                fhir_model::DateTime::DateTime(instant) => {
-                    let fhir_model::Instant(offsetdatetime) = instant;
-                    (Deceased::Dead, Some(*offsetdatetime))
-                }
-            },
+            PatientDeceased::DateTime(death_time) => {
+                (Deceased::Dead, Some(parse_datetime(death_time)?))
+            }
         },
         None => (Deceased::Unknown, None),
     };
@@ -96,7 +169,7 @@ pub fn convert_patient(src: &Patient) -> ConversionResult<AggregatePatient> {
         parse_addresses(double_unwrap(&src.address))?;
 
     let Some(patient_id) = &src.id else {
-        return Err(ConversionError {})
+        return Err(ConversionError {});
     };
 
     Ok(AggregatePatient {

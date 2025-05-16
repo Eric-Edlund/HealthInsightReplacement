@@ -1,0 +1,77 @@
+{
+  "resourceType": "Encounter",
+  "id": "00017486-6c88-2b8a-ca28-7f147efb8848",
+  "meta": {
+    "profile": [
+      "http://hl7.org/fhir/us/core/StructureDefinition/us-core-encounter"
+    ]
+  },
+  "identifier": [
+    {
+      "use": "official",
+      "system": "https://github.com/synthetichealth/synthea",
+      "value": "00017486-6c88-2b8a-ca28-7f147efb8848"
+    }
+  ],
+  "status": "finished",
+  "class": {
+    "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+    "code": "AMB"
+  },
+  "type": [
+    {
+      "coding": [
+        {
+          "system": "http://snomed.info/sct",
+          "code": "185347001",
+          "display": "Encounter for problem (procedure)"
+        }
+      ],
+      "text": "Encounter for problem (procedure)"
+    }
+  ],
+  "subject": {
+    "reference": "Patient/7d9aa431-cd72-8aa2-9559-5920937d9330",
+    "display": "Mr. Dwight645 Jamal145 Weimann465"
+  },
+  "participant": [
+    {
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
+              "code": "PPRF",
+              "display": "primary performer"
+            }
+          ],
+          "text": "primary performer"
+        }
+      ],
+      "period": {
+        "start": "1998-04-16T15:59:37-04:00",
+        "end": "1998-04-16T19:44:37-04:00"
+      },
+      "individual": {
+        "reference": "Practitioner?identifier=http://hl7.org/fhir/sid/us-npi|9999996298",
+        "display": "Dr. Sallie654 Jast432"
+      }
+    }
+  ],
+  "period": {
+    "start": "1998-04-16T15:59:37-04:00",
+    "end": "1998-04-16T19:44:37-04:00"
+  },
+  "location": [
+    {
+      "location": {
+        "reference": "Location?identifier=https://github.com/synthetichealth/synthea|4483aff2-b48c-39f6-92ba-cc6c1cac502b",
+        "display": "OLATHE MEDICAL CENTER"
+      }
+    }
+  ],
+  "serviceProvider": {
+    "reference": "Organization?identifier=https://github.com/synthetichealth/synthea|55f984c8-3d2f-3b1f-9a24-d693ca144a28",
+    "display": "OLATHE MEDICAL CENTER"
+  }
+}
