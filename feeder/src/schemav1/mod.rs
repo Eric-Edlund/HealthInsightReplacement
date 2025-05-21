@@ -6,6 +6,7 @@ pub use patient::*;
 pub use encounter::*;
 
 
+#[derive(Debug)]
 pub enum Resource {
     Patient(AggregatePatient),
     Encounter(Encounter),

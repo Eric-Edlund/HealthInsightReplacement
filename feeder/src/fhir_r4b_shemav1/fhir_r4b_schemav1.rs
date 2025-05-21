@@ -21,7 +21,13 @@ pub type ConversionResult<T> = Result<T, ConversionError>;
 
 const DD: time::Date = date!(2025 - 01 - 01);
 
-pub fn convert_bundle(src: &Bundle) -> ConversionResult<Vec<schemav1::Resource>> {
+#[derive(Debug)]
+pub struct ConvertedBundle {
+    pub resources: Vec<schemav1::Resource>,
+}
+
+#[allow(dead_code)]
+pub fn convert_bundle(src: &Bundle) -> ConversionResult<ConvertedBundle> {
     let mut result = vec![];
 
     for entry in double_unwrap(&src.entry) {
@@ -29,13 +35,14 @@ pub fn convert_bundle(src: &Bundle) -> ConversionResult<Vec<schemav1::Resource>>
             result.push(match resource {
                 Resource::Patient(res) => schemav1::Resource::Patient(convert_patient(res)?),
                 Resource::Encounter(res) => schemav1::Resource::Encounter(convert_encounter(res)?),
-                _ => continue
+                _ => continue,
             })
         }
     }
-    Ok(result)
+    Ok(ConvertedBundle { resources: result })
 }
 
+#[allow(dead_code)]
 pub fn convert_encounter(src: &Encounter) -> ConversionResult<schemav1::Encounter> {
     let Some(encounter_id) = src.id.clone() else {
         return Err(ConversionError {});
@@ -137,6 +144,7 @@ fn parse_patient_reference(reff: &Reference) -> ConversionResult<String> {
     Err(ConversionError {})
 }
 
+#[allow(dead_code)]
 pub fn convert_patient(src: &Patient) -> ConversionResult<AggregatePatient> {
     let names = double_unwrap(&src.name);
     let first = names.first();
